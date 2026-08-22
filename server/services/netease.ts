@@ -3,6 +3,9 @@ import NeteaseCloudMusicApi from 'NeteaseCloudMusicApi';
 import axios from 'axios';
 import { getNeteaseCookie } from './upstash.js';
 
+// 使用 any 类型绕过 NeteaseCloudMusicApi 的类型定义问题
+const NCM: any = NeteaseCloudMusicApi;
+
 type ResourceType = 'song' | 'playlist' | 'album' | 'user' | 'unknown';
 
 interface ParsedResource {
@@ -124,7 +127,7 @@ export class NeteaseProvider {
 
     try {
       console.log('未找到 Cookie，尝试匿名登录...');
-      const result = await NeteaseCloudMusicApi.register_anonimous();
+      const result = await NCM.register_anonimous();
       if (result.status === 200 && result.body && result.body.cookie) {
         this.anonymousCookie = typeof result.body.cookie === 'string' 
           ? result.body.cookie 
@@ -174,7 +177,7 @@ export class NeteaseProvider {
   }
 
   private async handleSongLink(id: string, cookie: string, realIP: string) {
-    const detailRes = await NeteaseCloudMusicApi.song_detail({ ids: id, cookie, realIP });
+    const detailRes = await NCM.song_detail({ ids: id, cookie, realIP });
     
     if (detailRes.body.code !== 200 || !detailRes.body.songs || detailRes.body.songs.length === 0) {
       throw new Error('Song not found');
@@ -186,7 +189,7 @@ export class NeteaseProvider {
 
   private async handleUserLink(userId: string, cookie: string, realIP: string) {
     // 1. Fetch user's playlists
-    const playlistRes = await NeteaseCloudMusicApi.user_playlist({ uid: userId, limit: 1, cookie, realIP });
+    const playlistRes = await NCM.user_playlist({ uid: userId, limit: 1, cookie, realIP });
     
     if (playlistRes.body.code !== 200 || !playlistRes.body.playlist || playlistRes.body.playlist.length === 0) {
       throw new Error('User has no public playlists');
@@ -201,7 +204,7 @@ export class NeteaseProvider {
 
   private async handlePlaylistLink(playlistId: string, cookie: string, realIP: string) {
     // 1. Fetch playlist details
-    const playlistRes = await NeteaseCloudMusicApi.playlist_detail({ id: playlistId, cookie, realIP });
+    const playlistRes = await NCM.playlist_detail({ id: playlistId, cookie, realIP });
     
     if (playlistRes.body.code !== 200 || !playlistRes.body.playlist) {
       throw new Error('Playlist not found');
@@ -241,12 +244,12 @@ export class NeteaseProvider {
     const cookie = await this.getCookie();
     const realIP = process.env.REAL_IP || '';
 
-    let urlRes = await NeteaseCloudMusicApi.song_url_v1({ id, level, cookie, realIP } as any);
+    let urlRes = await NCM.song_url_v1({ id, level, cookie, realIP } as any);
 
     const data = (urlRes.body as any).data as any[] | undefined;
     if ((!data || !data[0] || !data[0].url) && level !== 'standard') {
       console.log(`Fallback to standard quality for ID: ${id}`);
-      urlRes = await NeteaseCloudMusicApi.song_url_v1({ id, level: 'standard', cookie, realIP } as any);
+      urlRes = await NCM.song_url_v1({ id, level: 'standard', cookie, realIP } as any);
     }
 
     const data2 = (urlRes.body as any).data as any[] | undefined;

@@ -74,8 +74,8 @@ router.get('/audio/:id', async (req, res) => {
       timeout: 30000
     });
 
-    const contentType = response.headers['content-type'] || 'audio/mpeg';
-    const contentLength = response.headers['content-length'];
+    const contentType = (response.headers['content-type'] as string) || 'audio/mpeg';
+    const contentLength = response.headers['content-length'] as string | undefined;
     
     res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);
@@ -114,8 +114,8 @@ router.get('/proxy', async (req, res) => {
       timeout: 30000
     });
 
-    const contentType = response.headers['content-type'];
-    const contentLength = response.headers['content-length'];
+    const contentType = response.headers['content-type'] as string | undefined;
+    const contentLength = response.headers['content-length'] as string | undefined;
     
     if (contentType) res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);

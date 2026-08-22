@@ -4,8 +4,8 @@
   "description": "网易云音乐 Vercel 音频代理（支持 Upstash Redis 自动同步 Cookie）",
   "type": "module",
   "scripts": {
-    "build": "echo \"Build skipped - Vercel runs TypeScript directly\"",
-    "start": "tsx server/server.ts",
+    "build": "tsc",
+    "start": "node dist/server/server.js",
     "dev": "tsx watch server/server.ts"
   },
   "dependencies": {

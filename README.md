@@ -104,6 +104,27 @@ npm run server:dev
 
 `quality` 可选值：`standard`、`high`、`lossless`。
 
+### `GET /api/music/audio/:id?quality=standard`
+
+**专为 Telegram Bot 设计的音频代理接口**，直接通过歌曲 ID 获取音频流。
+
+- `:id` - 网易云歌曲 ID
+- `quality` - 可选，音质参数：`standard`（标准）、`high`（极高）、`lossless`（无损）
+
+**使用示例：**
+```
+https://your-vercel-domain.vercel.app/api/music/audio/1954907052?quality=standard
+```
+
+**响应头：**
+- `Content-Type: audio/mpeg`
+- `X-Proxy-Source: vercel`
+- `X-Song-ID: 歌曲ID`
+- `X-Quality: 音质`
+
+**在 Telegram Bot 中使用：**
+直接将此 URL 作为 `sendAudio` 的 `audio` 参数，Telegram 服务器会自动从 Vercel 代理下载音频。
+
 ### `GET /api/music/proxy?url=<encoded_url>`
 
 代理拉取音频流并返回给前端下载。

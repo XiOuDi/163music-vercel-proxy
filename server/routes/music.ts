@@ -46,6 +46,7 @@ router.post('/download', async (req, res) => {
 router.get('/audio/:id', async (req, res) => {
   const { id } = req.params;
   const quality = (req.query.quality as string) || 'standard';
+  const name = (req.query.name as string) || `song_${id}`;
 
   if (!id) {
     return res.status(400).send('Song ID is required');
@@ -77,6 +78,9 @@ router.get('/audio/:id', async (req, res) => {
     const contentType = (response.headers['content-type'] as string) || 'audio/mpeg';
     const contentLength = response.headers['content-length'] as string | undefined;
     
+    // 设置正确的文件名（避免Telegram显示网易云的数字ID文件名）
+    const safeName = name.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
+    res.setHeader('Content-Disposition', `inline; filename="${safeName}.mp3"`);
     res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);
     res.setHeader('Accept-Ranges', 'bytes');

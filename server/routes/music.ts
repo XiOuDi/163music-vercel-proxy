@@ -53,8 +53,11 @@ router.get('/audio/:id', async (req, res) => {
   }
 
   try {
+    console.log(`[Audio Proxy] 请求音频: id=${id}, quality=${quality}, name=${name}`);
+    
     // Step 1: 获取歌曲下载 URL
     const downloadData = await netease.getDownloadUrl(id, quality);
+    console.log(`[Audio Proxy] 获取下载URL成功: playable=${downloadData.playable}, url长度=${downloadData.url?.length || 0}`);
     
     if (!downloadData.playable || !downloadData.url) {
       return res.status(403).json({ 
@@ -63,7 +66,17 @@ router.get('/audio/:id', async (req, res) => {
       });
     }
 
-    // Step 2: 代理音频流
+    // Step 2: 先设置响应头（在流式响应开始前）
+    const safeName = name.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}.mp3"`);
+    res.setHeader('Content-Type', 'audio/mpeg');
+    res.setHeader('Accept-Ranges', 'bytes');
+    res.setHeader('X-Proxy-Source', 'vercel');
+    res.setHeader('X-Song-ID', id);
+    res.setHeader('X-Quality', quality);
+    res.setHeader('X-Song-Name', encodeURIComponent(name));
+
+    // Step 3: 代理音频流
     const response = await axios({
       url: downloadData.url,
       method: 'GET',
@@ -72,29 +85,34 @@ router.get('/audio/:id', async (req, res) => {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
         'Referer': 'https://music.163.com/'
       },
-      timeout: 30000
+      timeout: 30000,
+      validateStatus: (status) => status < 400
     });
 
+    console.log(`[Audio Proxy] 网易云响应: status=${response.status}, content-type=${response.headers['content-type']}, content-length=${response.headers['content-length']}`);
+    
+    // 设置实际的 content-type 和 content-length
     const contentType = (response.headers['content-type'] as string) || 'audio/mpeg';
     const contentLength = response.headers['content-length'] as string | undefined;
-    
-    // 设置正确的文件名（避免Telegram显示网易云的数字ID文件名）
-    const safeName = name.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
-    res.setHeader('Content-Disposition', `inline; filename="${safeName}.mp3"`);
     res.setHeader('Content-Type', contentType);
     if (contentLength) res.setHeader('Content-Length', contentLength);
-    res.setHeader('Accept-Ranges', 'bytes');
-    res.setHeader('X-Proxy-Source', 'vercel');
-    res.setHeader('X-Song-ID', id);
-    res.setHeader('X-Quality', quality);
     
     response.data.pipe(res);
-  } catch (error: any) {
-    console.error('Audio proxy error:', error);
-    res.status(500).json({ 
-      success: false, 
-      error: error.message || 'Failed to proxy audio' 
+    
+    response.data.on('error', (err: any) => {
+      console.error('[Audio Proxy] 流错误:', err.message);
+      if (!res.headersSent) {
+        res.status(500).json({ success: false, error: 'Stream error: ' + err.message });
+      }
     });
+  } catch (error: any) {
+    console.error('[Audio Proxy] 错误:', error.message, error.stack);
+    if (!res.headersSent) {
+      res.status(500).json({ 
+        success: false, 
+        error: error.message || 'Failed to proxy audio' 
+      });
+    }
   }
 });
 

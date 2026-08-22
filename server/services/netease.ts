@@ -1,6 +1,7 @@
 // @ts-ignore
 import NeteaseCloudMusicApi from 'NeteaseCloudMusicApi';
 import axios from 'axios';
+import { getNeteaseCookie } from './upstash.js';
 
 type ResourceType = 'song' | 'playlist' | 'album' | 'user' | 'unknown';
 
@@ -104,23 +105,35 @@ export class NeteaseProvider {
   }
 
   private async getCookie(): Promise<string> {
+    // 优先级1：从 Upstash Redis 获取（自动同步 Bot 更新的 Cookie）
+    try {
+      const upstashCookie = await getNeteaseCookie();
+      if (upstashCookie) {
+        return upstashCookie;
+      }
+    } catch (e) {
+      console.warn('从 Upstash 获取 Cookie 失败，将回退到环境变量:', e);
+    }
+
+    // 优先级2：环境变量
     const envCookie = process.env.NETEASE_COOKIE || '';
     if (envCookie) return envCookie;
 
+    // 优先级3：匿名登录（缓存）
     if (this.anonymousCookie) return this.anonymousCookie;
 
     try {
-      console.log('No NETEASE_COOKIE found, attempting anonymous login...');
+      console.log('未找到 Cookie，尝试匿名登录...');
       const result = await NeteaseCloudMusicApi.register_anonimous();
       if (result.status === 200 && result.body && result.body.cookie) {
         this.anonymousCookie = typeof result.body.cookie === 'string' 
           ? result.body.cookie 
           : (result.body.cookie as string[]).join('; ');
-        console.log('Anonymous login successful.');
+        console.log('匿名登录成功。');
         return this.anonymousCookie;
       }
     } catch (e) {
-      console.error('Anonymous login failed:', e);
+      console.error('匿名登录失败:', e);
     }
     return '';
   }

@@ -48,6 +48,43 @@ npm install
 | `REAL_IP` | 否 | 传给上游 API 的真实 IP 参数（部分场景可提升可用性） |
 | `QQ_COOKIE` | 否 | 预留字段（当前版本未使用） |
 | `KUGOU_COOKIE` | 否 | 预留字段（当前版本未使用） |
+| `UPSTASH_REDIS_REST_URL` | 推荐 | Upstash Redis REST URL，用于自动同步 Bot Cookie |
+| `UPSTASH_REDIS_REST_TOKEN` | 推荐 | Upstash Redis REST Token |
+
+## Upstash Redis 自动同步 Cookie（推荐）
+
+配置 Upstash 后，Vercel 代理会自动从 Redis 获取网易云 Cookie，实现与 Telegram Bot 的 Cookie 同步。
+
+### 工作原理
+
+```
+Bot 管理员更新 Cookie → 写入 Upstash Redis → Vercel 代理自动读取最新 Cookie
+```
+
+### 支持的 Cookie Key
+
+Vercel 代理会自动检测以下 key（按优先级）：
+
+1. `netease:cookie` - 完整 Cookie
+2. `netease:music_u` - 仅 MUSIC_U 值
+3. `cookie:music_u` - Bot 默认格式
+
+### 健康检查
+
+访问 `/api/health` 可以查看 Upstash 连接状态：
+
+```json
+{
+  "success": true,
+  "services": {
+    "upstash": {
+      "configured": true,
+      "connected": true,
+      "error": null
+    }
+  }
+}
+```
 
 ### 3. 启动开发环境
 

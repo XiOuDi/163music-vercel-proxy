@@ -1,187 +1,104 @@
-# NeteaseDL
+# 163music Vercel 音频代理
 
-一个基于 `React + Vite + Express + TypeScript` 的网易云音乐链接解析与下载工具。  
-支持粘贴歌曲链接、分享文案、短链或歌曲 ID，解析后直接下载音频文件。
+基于 NeteaseDL 的网易云音乐 Vercel 音频代理，专为 Telegram Bot 设计。
 
 ## 功能特性
 
-- 支持输入以下内容进行解析：
-  - 网易云歌曲链接
-  - 分享文案中的链接
-  - `163.cn / 163cn.tv / y.music.163.com` 短链
-  - 纯数字歌曲 ID
-- 后端自动处理短链跳转并提取资源信息
-- 支持 `standard / high / lossless` 质量参数（高音质不可用时自动降级）
-- 内置下载代理接口，规避浏览器跨域限制
-- 提供健康检查接口，便于部署后巡检
-- 支持 Vercel 部署（已包含 `api/index.ts` 与 `vercel.json`）
+- ✅ **Telegram Bot 专用接口**：`/api/music/audio/:id` 直接通过歌曲 ID 获取音频流
+- ✅ **Upstash Redis 自动同步 Cookie**：Bot 管理员更新 Cookie 后自动同步
+- ✅ **多音质支持**：standard / high / lossless，高音质不可用时自动降级
+- ✅ **健康检查**：`/api/health` 查看服务状态和 Upstash 连接状态
 
-## 当前限制
+## 快速部署
 
-- 当前仅实现了网易云 Provider（`NeteaseProvider`）
-- 用户主页链接与歌单链接目前会解析为该歌单的第一首歌
-- `album` 链接会识别到类型，但当前后端未实现 album 处理流程
-- VIP / 版权受限歌曲即使解析成功，也可能无法获取可下载地址
+### 1. 配置 Upstash Redis（推荐）
 
-## 技术栈
+在 [Upstash 控制台](https://console.upstash.com/redis) 创建 Redis 数据库，获取以下信息：
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
 
-- 前端：React 18、Vite、Tailwind CSS、Zustand
-- 后端：Express、Axios、NeteaseCloudMusicApi
-- 语言：TypeScript
-- 部署：Vercel（Serverless Function + SPA Rewrite）
+### 2. 部署到 Vercel
 
-## 本地开发
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/XiOuDi/163music-vercel-proxy)
 
-### 1. 安装依赖
+或手动导入：
+1. 打开 https://vercel.com/new
+2. 选择 `XiOuDi/163music-vercel-proxy` 仓库
+3. 配置环境变量（见下方）
+4. 点击 Deploy
 
-```bash
-npm install
-```
-
-### 2. 配置环境变量
-
-复制 `.env.example` 到 `.env`，并按需填写：
+### 3. 环境变量
 
 | 变量名 | 必填 | 说明 |
-| --- | --- | --- |
-| `NETEASE_COOKIE` | 否 | 网易云 Cookie。未配置时会尝试匿名登录；部分资源仍可能受限 |
-| `REAL_IP` | 否 | 传给上游 API 的真实 IP 参数（部分场景可提升可用性） |
-| `QQ_COOKIE` | 否 | 预留字段（当前版本未使用） |
-| `KUGOU_COOKIE` | 否 | 预留字段（当前版本未使用） |
-| `UPSTASH_REDIS_REST_URL` | 推荐 | Upstash Redis REST URL，用于自动同步 Bot Cookie |
+|--------|------|------|
+| `UPSTASH_REDIS_REST_URL` | 推荐 | Upstash Redis REST URL |
 | `UPSTASH_REDIS_REST_TOKEN` | 推荐 | Upstash Redis REST Token |
+| `NETEASE_COOKIE` | 可选 | 网易云 Cookie（优先使用 Upstash） |
+| `REAL_IP` | 可选 | 真实 IP，提升可用性 |
 
-## Upstash Redis 自动同步 Cookie（推荐）
+## API 接口
 
-配置 Upstash 后，Vercel 代理会自动从 Redis 获取网易云 Cookie，实现与 Telegram Bot 的 Cookie 同步。
-
-### 工作原理
+### 获取音频流（Telegram Bot 专用）
 
 ```
-Bot 管理员更新 Cookie → 写入 Upstash Redis → Vercel 代理自动读取最新 Cookie
+GET /api/music/audio/:id?quality=standard
 ```
 
-### 支持的 Cookie Key
+**参数：**
+- `:id` - 网易云歌曲 ID
+- `quality` - 音质：`standard`（标准）、`high`（极高）、`lossless`（无损）
 
-Vercel 代理会自动检测以下 key（按优先级）：
-
-1. `netease:cookie` - 完整 Cookie
-2. `netease:music_u` - 仅 MUSIC_U 值
-3. `cookie:music_u` - Bot 默认格式
+**示例：**
+```
+https://your-domain.vercel.app/api/music/audio/1954907052?quality=standard
+```
 
 ### 健康检查
 
-访问 `/api/health` 可以查看 Upstash 连接状态：
-
-```json
-{
-  "success": true,
-  "services": {
-    "upstash": {
-      "configured": true,
-      "connected": true,
-      "error": null
-    }
-  }
-}
+```
+GET /api/health
 ```
 
-### 3. 启动开发环境
+返回服务状态和 Upstash 连接状态。
+
+## Cookie 同步原理
+
+```
+Bot 管理员更新 Cookie
+    ↓
+写入 Upstash Redis (key: cookie:music_u)
+    ↓
+Vercel 代理自动读取最新 Cookie
+    ↓
+使用最新 Cookie 获取歌曲下载 URL
+```
+
+**支持的 Cookie Key（自动检测）：**
+1. `netease:cookie` - 完整 Cookie
+2. `netease:music_u` - 仅 MUSIC_U
+3. `cookie:music_u` - Bot 默认格式
+
+## 本地开发
 
 ```bash
+# 安装依赖
+npm install
+
+# 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件
+
+# 启动开发服务器
 npm run dev
 ```
 
-该命令会并行启动：
+## 技术栈
 
-- 前端开发服务器：`http://localhost:5173`
-- 后端 API 服务：默认 `http://localhost:3001`（端口占用时会自动尝试 `3002-3010`）
-
-## 生产构建
-
-```bash
-npm run build
-npm run preview
-```
-
-如果仅需本地启动后端：
-
-```bash
-npm run server:dev
-```
-
-## API 说明
-
-### `POST /api/music/parse`
-
-解析输入并返回歌曲信息。
-
-请求体示例：
-
-```json
-{
-  "url": "https://music.163.com/song?id=28754101"
-}
-```
-
-也可传入分享文案、短链或纯数字 ID。
-
-### `POST /api/music/download`
-
-根据歌曲 ID 获取可下载地址。
-
-请求体示例：
-
-```json
-{
-  "id": "28754101",
-  "quality": "standard"
-}
-```
-
-`quality` 可选值：`standard`、`high`、`lossless`。
-
-### `GET /api/music/audio/:id?quality=standard`
-
-**专为 Telegram Bot 设计的音频代理接口**，直接通过歌曲 ID 获取音频流。
-
-- `:id` - 网易云歌曲 ID
-- `quality` - 可选，音质参数：`standard`（标准）、`high`（极高）、`lossless`（无损）
-
-**使用示例：**
-```
-https://your-vercel-domain.vercel.app/api/music/audio/1954907052?quality=standard
-```
-
-**响应头：**
-- `Content-Type: audio/mpeg`
-- `X-Proxy-Source: vercel`
-- `X-Song-ID: 歌曲ID`
-- `X-Quality: 音质`
-
-**在 Telegram Bot 中使用：**
-直接将此 URL 作为 `sendAudio` 的 `audio` 参数，Telegram 服务器会自动从 Vercel 代理下载音频。
-
-### `GET /api/music/proxy?url=<encoded_url>`
-
-代理拉取音频流并返回给前端下载。
-
-### `GET /api/health`
-
-健康检查接口，返回服务状态。
-
-## Vercel 部署说明
-
-仓库已包含以下部署适配：
-
-- `api/index.ts`：将 Express 应用导出为 Vercel 函数入口
-- `vercel.json`：
-  - `/api/*` 重写到 `/api/index`
-  - 其他路径重写到 `/index.html` 以支持前端路由
-
-部署时请在 Vercel Project Settings 中配置环境变量（至少建议配置 `NETEASE_COOKIE`）。
+- **后端**：Express + TypeScript
+- **网易云 API**：NeteaseCloudMusicApi
+- **数据库**：Upstash Redis
+- **部署**：Vercel Serverless Functions
 
 ## 合规声明
 
-本项目仅用于学习与技术研究。  
-请遵守所在地法律法规、平台服务条款与版权要求，不要将本项目用于任何侵权用途。
+本项目仅用于学习与技术研究。请遵守所在地法律法规、平台服务条款与版权要求，不要将本项目用于任何侵权用途。

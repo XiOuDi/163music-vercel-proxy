@@ -5,3 +5,8 @@ dist
 .trae
 .log
 .figma
+.vscode
+.idea
+*.log
+.env
+.env.local

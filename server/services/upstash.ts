@@ -28,7 +28,7 @@ export function getRedis(): Redis | null {
 
 /**
  * 从 Upstash 获取网易云 Cookie
- * 优先获取 music_u，然后获取完整的 cookie
+ * 优先获取完整 cookie，然后获取 music_u
  */
 export async function getNeteaseCookie(): Promise<string> {
   const redis = getRedis();
@@ -38,18 +38,25 @@ export async function getNeteaseCookie(): Promise<string> {
     // 尝试获取完整的 cookie
     const fullCookie = await redis.get<string>('netease:cookie');
     if (fullCookie) {
-      console.log('[Upstash] 从 Redis 获取到完整 Cookie');
+      console.log('[Upstash] 从 Redis 获取到完整 Cookie (netease:cookie)');
       return fullCookie;
+    }
+
+    // 尝试获取 bot:cookie（Bot 默认存储的 MUSIC_U 值）
+    const botCookie = await redis.get<string>('bot:cookie');
+    if (botCookie) {
+      console.log('[Upstash] 从 Redis 获取到 bot:cookie，包装为 MUSIC_U');
+      return `MUSIC_U=${botCookie}`;
     }
 
     // 尝试获取 music_u
     const musicU = await redis.get<string>('netease:music_u');
     if (musicU) {
-      console.log('[Upstash] 从 Redis 获取到 music_u');
+      console.log('[Upstash] 从 Redis 获取到 netease:music_u');
       return `MUSIC_U=${musicU}`;
     }
 
-    // 尝试获取 cookie:music_u（Bot 使用的 key 格式）
+    // 尝试获取 cookie:music_u
     const cookieMusicU = await redis.get<string>('cookie:music_u');
     if (cookieMusicU) {
       console.log('[Upstash] 从 Redis 获取到 cookie:music_u');
